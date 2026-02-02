@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fingerprint ATM System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        input, button {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #message {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .fingerprint-subtitle {
+            text-align: left; /* Align text to the left */
+            color: black; /* Change text color to black */
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .balance-display {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ATM SYSTEM</h1>
+        
+        <!-- Login Section -->
+        <div id="login-section">
+            <div class="fingerprint-subtitle">Enter the User ID:</div>
+            <input type="text" id="user-id" placeholder="User ID">
+            <div class="fingerprint-subtitle">Place the Finger:</div>
+            <input type="file" id="fingerprint-upload" accept="image/*">
+            <div class="fingerprint-subtitle">Enter the PIN:</div>
+            <input type="password" id="pin" placeholder="PIN">
+            <button onclick="authenticate()">Authenticate</button>
+        </div>
+
+        <!-- ATM Operations Section (Hidden by Default) -->
+        <div id="atm-operations" style="display: none;">
+            <h2 id="welcome-message"></h2>
+            <!------button onclick="checkBalance()">Check Balance</button------->
+            <button onclick="showWithdraw()">Withdraw</button>
+            <button onclick="showDeposit()">Deposit</button>
+            <button onclick="logout()">Logout</button>
+
+            <!-- Display current balance -->
+            <div id="balance-section" class="balance-display" style="display:none;">
+                <span>Current Balance: Rs <span id="current-balance">0.00</span></span>
+            </div>
+
+            <!-- Withdraw Section -->
+            <div id="withdraw-section" style="display: none;">
+                <input type="number" id="withdraw-amount" placeholder="Enter withdrawal amount">
+                <button onclick="processWithdraw()">Confirm Withdraw</button>
+            </div>
+
+            <!-- Deposit Section -->
+            <div id="deposit-section" style="display: none;">
+                <input type="number" id="deposit-amount" placeholder="Enter deposit amount">
+                <button onclick="processDeposit()">Confirm Deposit</button>
+            </div>
+        </div>
+
+        <!-- Message Display -->
+        <div id="message"></div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        function authenticate() {
+            const userId = document.getElementById('user-id').value;
+            const pinInput = document.getElementById('pin').value;
+            const fingerprintUpload = document.getElementById('fingerprint-upload').files[0];
+
+            // Create form data
+            const formData = new FormData();
+            formData.append('userId', userId);
+            formData.append('pin', pinInput);
+            formData.append('fingerprint', fingerprintUpload);
+
+            // Send authentication request
+            fetch('/authenticate', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentUser = { id: userId, name: data.name, balance: data.balance };
+                    
+                    // Show ATM operations
+                    document.getElementById('login-section').style.display = 'none';
+                    document.getElementById('atm-operations').style.display = 'block';
+                    document.getElementById('welcome-message').textContent = `Welcome, ${currentUser.name} !`;
+                    
+                    showMessage('Authentication Successful', 'success');
+                    // Display current balance after successful authentication
+                    document.getElementById('current-balance').textContent = currentUser.balance.toFixed(2);
+                    document.getElementById('balance-section').style.display = 'block'; // Show balance section
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Authentication Failed', 'error');
+            });
+        }
+
+        function checkBalance() {
+            if (!currentUser) return;
+            fetch('/check-balance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userId: currentUser.id })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the displayed balance
+                    document.getElementById('current-balance').textContent = data.balance.toFixed(2);
+                    showMessage(`Current Balance: Rs ${data.balance.toFixed(2)}`, 'info');
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            });
+        }
+
+        function showWithdraw() {
+            document.getElementById('withdraw-section').style.display = 'block';
+            document.getElementById('deposit-section').style.display = 'none';
+        }
+
+        function processWithdraw() {
+            const withdrawAmount = parseFloat(document.getElementById('withdraw-amount').value);
+            
+            const formData = new FormData();
+            formData.append('userId', currentUser.id);
+            formData.append('amount', withdrawAmount);
+
+            fetch('/withdraw', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentUser.balance = data.balance;
+                    showMessage(`Withdrawn Rs ${withdrawAmount.toFixed(2)}`, 'success');
+                    document.getElementById('withdraw-section').style.display = 'none';
+                    // Update balance on the screen
+                    document.getElementById('current-balance').textContent = currentUser.balance.toFixed(2);
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            });
+        }
+
+        function showDeposit() {
+            document.getElementById('deposit-section').style.display = 'block';
+            document.getElementById('withdraw-section').style.display = 'none';
+        }
+
+        function processDeposit() {
+            const depositAmount = parseFloat(document.getElementById('deposit-amount').value);
+            
+            const formData = new FormData();
+            formData.append('userId', currentUser.id);
+            formData.append('amount', depositAmount);
+
+            fetch('/deposit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentUser.balance = data.balance;
+                    showMessage(`Deposited Rs ${depositAmount.toFixed(2)}`, 'success');
+                    document.getElementById('deposit-section').style.display = 'none';
+                    // Update balance on the screen
+                    document.getElementById('current-balance').textContent = currentUser.balance.toFixed(2);
+                } else {
+                    showMessage(data.message, 'error');
+                }
+            });
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('atm-operations').style.display = 'none';
+            
+            // Reset form fields
+            document.getElementById('user-id').value = '';
+            document.getElementById('pin').value = '';
+            document.getElementById('fingerprint-upload').value = '';
+            
+            showMessage('Logged out successfully', 'info');
+        }
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            
+            // Remove previous classes
+            messageDiv.classList.remove('success', 'error', 'info');
+            
+            // Add appropriate class
+            messageDiv.classList.add(type);
+        }
+    </script>
+</body>
+</html>
+
