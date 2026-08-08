@@ -1,4 +1,4 @@
-# 🏦 Fingerprint ATM System (Flask-Based)
+# 🏦 Fingerprint ATM System 
 
 A **Flask web application** that simulates an ATM system secured using **two-factor authentication**:  
 **Fingerprint image verification + PIN authentication**.  
@@ -49,7 +49,7 @@ Fingerprint_ATM_System/
 ## 🔑 Authentication Workflow
 
 1. User enters:
-   - User ID
+   - User Identification
    - PIN
    - Fingerprint image
 2. Fingerprint is temporarily stored and compared with the registered fingerprint
